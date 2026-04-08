@@ -1,89 +1,75 @@
 using NaughtyAttributes;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 
 public class DungeonGenerator : MonoBehaviour
 {
-    public int height = 50;
-    public int width = 100;
+    [SerializeField]
+    private RectInt dungeonBounds;
 
-    public List<RectInt> ToDo = new ();
-    public List<RectInt> Done = new ();
+    [SerializeField]
+    public List<RectInt> ToDo = new();
+    public List<RectInt> Done = new();
+
+    [SerializeField]
+    private RectInt door;
 
     [ContextMenu("Generate dungeon")]
     [Button("Generate dungeon", EButtonEnableMode.Playmode)]
     private void Start()
     {
-
-        StartCoroutine(StartDungeonGeneration());
+        StartCoroutine(GenerateDungeon());
     }
 
-    private IEnumerator StartDungeonGeneration()
+    private IEnumerator GenerateDungeon()
     {
+        ToDo.Clear();
+        door = RectInt.zero;
+
+        (RectInt roomA, RectInt roomB) = SplitVertically(dungeonBounds);
+        ToDo.Add(roomA);
+        ToDo.Add(roomB);
+
+        RectInt intersection = AlgorithmsUtils.Intersect(roomA, roomB);
+        int randomY = UnityEngine.Random.Range(intersection.y + 1, intersection.y + intersection.height - 1);
+
+        door = new RectInt(intersection.x, randomY, intersection.width, intersection.width);
+
         DebugDrawingBatcher.GetInstance().ClearAllBatchedCalls();
 
         yield return null;
 
-        ToDo.Add( new RectInt(0, 0, width, height));
-
-        DebugDrawingBatcher.GetInstance().BatchCall(
-            () => AlgorithmsUtils.DebugRectInt(ToDo[0], Color.red)
-        );
-
-        //yield return keypress
-        yield return new WaitUntil (() => Input.GetKeyDown(KeyCode.Space));
-        yield return null;
-
-        DebugDrawingBatcher.GetInstance().ClearAllBatchedCalls();
-
-        RectInt main = ToDo[0];
-
-        int splitX = main.width / 2;
-        RectInt half1 = new RectInt(main.x, main.y, splitX + 1, main.height);
-
-        DebugDrawingBatcher.GetInstance().BatchCall(
-                () => AlgorithmsUtils.DebugRectInt(half1, Color.yellow)
-        );
-
-
-        RectInt half2 = new RectInt(main.x + splitX - 1, main.y, splitX + 1, main.height);
-
-        DebugDrawingBatcher.GetInstance().BatchCall(
-                () => AlgorithmsUtils.DebugRectInt(half2, Color.yellow)
-        );
-
-
-    }
-
-    
-
-    
-    void VerticalSplit(RectInt main)
-    {
-        DebugDrawingBatcher.GetInstance().ClearAllBatchedCalls();
-
-        int splitX = main.width / 2;
-        RectInt half1 = new RectInt(main.x, main.y, splitX + 1, main.height);
-
-        DebugDrawingBatcher.GetInstance().BatchCall(
-                () => AlgorithmsUtils.DebugRectInt(half1, Color.yellow)
-        );
-
-
-        RectInt half2 = new RectInt(main.x + splitX-1, main.y, splitX + 1, main.height);
-
-        DebugDrawingBatcher.GetInstance().BatchCall(
-                () => AlgorithmsUtils.DebugRectInt(half2, Color.yellow)
-        );
-
-    }
-
-    void WaitForSpace()
-    {
-        if (Input.GetKeyDown(KeyCode.Space))
+        DebugDrawingBatcher.GetInstance().BatchCall(() =>
         {
-            //VerticalSplit();
-        }
+            // Draw the rooms
+            foreach (var room in ToDo)
+            {
+                AlgorithmsUtils.DebugRectInt(roomA, Color.red);
+                RectInt innerRoomA = new RectInt(roomA.x + 1, roomA.y + 1, roomA.width - 2, roomA.height - 2);
+                AlgorithmsUtils.DebugRectInt(innerRoomA, Color.red);
+
+                AlgorithmsUtils.DebugRectInt(roomB, Color.red);
+                RectInt innerRoomB = new RectInt(roomB.x + 1, roomB.y + 1, roomB.width - 2, roomB.height - 2);
+                AlgorithmsUtils.DebugRectInt(innerRoomB, Color.red);
+
+            }
+
+            // Draw the door
+            AlgorithmsUtils.DebugRectInt(door, Color.cyan);
+        });
+    }
+    private (RectInt, RectInt) SplitVertically(RectInt pRect)
+    {
+        RectInt roomA = pRect;
+        RectInt roomB = pRect;
+
+        roomA.width = (roomA.width / 2) + UnityEngine.Random.Range(-2, 2);
+        roomB.width -= (roomA.width - 1);
+
+        roomB.x += roomA.width - 1;
+
+        return (roomA, roomB);
     }
 }

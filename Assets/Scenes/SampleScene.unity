@@ -436,6 +436,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1891185818}
   - component: {fileID: 1891185817}
+  - component: {fileID: 1891185819}
   m_Layer: 0
   m_Name: DungeonGenerator
   m_TagString: Untagged
@@ -450,7 +451,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1891185816}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 27c365531c9758d49a103174614e750b, type: 3}
   m_Name: 
@@ -474,6 +475,30 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1891185819
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1891185816}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b73a8956d8a5ea44cb346dcbf3142493, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonBounds:
+    x: 0
+    y: 0
+    width: 20
+    height: 10
+  ToDo: []
+  Done: []
+  door:
+    x: 0
+    y: 0
+    width: 0
+    height: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
