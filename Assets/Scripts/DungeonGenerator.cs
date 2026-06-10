@@ -74,7 +74,6 @@ public class DungeonGenerator : MonoBehaviour
             RectInt roomA;
             RectInt roomB;
 
-            // SPLIT
             if (splitVertical)
             {
                 (roomA, roomB) = SplitVertically(currentRoom);
