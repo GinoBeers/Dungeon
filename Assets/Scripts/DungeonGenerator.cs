@@ -40,8 +40,7 @@ public class DungeonGenerator : MonoBehaviour
 
         DebugDrawingBatcher.GetInstance().ClearAllBatchedCalls();
 
-        // Start with ONE room
-        toDo.Add(dungeonBounds);
+        toDo.Add(dungeonBounds);    
 
         while (toDo.Count > 0)
         {
@@ -54,7 +53,6 @@ public class DungeonGenerator : MonoBehaviour
             bool canSplitHorizontally =
                 currentRoom.height >= minimumRoomSize * 2;
 
-            // Cannot split anymore
             if (!canSplitVertically && !canSplitHorizontally)
             {
                 done.Add(currentRoom);
@@ -67,7 +65,6 @@ public class DungeonGenerator : MonoBehaviour
 
             bool splitVertical = Random.value > 0.5f;
 
-            // Force valid split direction
             if (!canSplitVertically)
                 splitVertical = false;
 
@@ -91,7 +88,6 @@ public class DungeonGenerator : MonoBehaviour
                 CreateHorizontalDoor(roomA, roomB);
             }
 
-            // Add new rooms for processing
             toDo.Add(roomA);
             toDo.Add(roomB);
 
@@ -201,13 +197,11 @@ public class DungeonGenerator : MonoBehaviour
 
         DebugDrawingBatcher.GetInstance().BatchCall(() =>
         {
-            // Draw rooms still processing
             foreach (RectInt room in toDo)
             {
                 AlgorithmsUtils.DebugRectInt(room, Color.yellow);
             }
 
-            // Draw finished rooms
             foreach (RectInt room in done)
             {
                 AlgorithmsUtils.DebugRectInt(room, Color.green);
@@ -225,7 +219,6 @@ public class DungeonGenerator : MonoBehaviour
                 }
             }
 
-            // Draw doors
             foreach (RectInt door in doors)
             {
                 AlgorithmsUtils.DebugRectInt(door, Color.cyan);
