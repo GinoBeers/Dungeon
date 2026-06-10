@@ -435,7 +435,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1891185818}
-  - component: {fileID: 1891185817}
   - component: {fileID: 1891185819}
   m_Layer: 0
   m_Name: DungeonGenerator
@@ -444,22 +443,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1891185817
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1891185816}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 27c365531c9758d49a103174614e750b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  height: 50
-  width: 100
-  ToDo: []
-  Done: []
 --- !u!4 &1891185818
 Transform:
   m_ObjectHideFlags: 0
