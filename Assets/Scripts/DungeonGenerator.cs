@@ -15,14 +15,10 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField]
     private float generationDelay = 0.1f;
 
-    [Header("Debug")]
-    [SerializeField]
     private List<RectInt> toDo = new();
 
-    [SerializeField]
     private List<RectInt> done = new();
 
-    [SerializeField]
     private List<RectInt> doors = new();
 
     [Button("Generate Dungeon")]
@@ -95,6 +91,7 @@ public class DungeonGenerator : MonoBehaviour
             yield return new WaitForSeconds(generationDelay);
         }
 
+        DebugDrawingBatcher.GetInstance().ClearAllBatchedCalls();
         DrawDungeon();
     }
 
