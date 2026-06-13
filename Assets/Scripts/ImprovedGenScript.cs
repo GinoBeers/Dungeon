@@ -14,6 +14,7 @@ public class ImprovedGenScript : MonoBehaviour
     private List<RectInt> done = new();
 
     private List<RoomNode> nodes = new();
+    private List<DoorNode> doorNodes = new();
     private List<RectInt> doors = new();
 
     [Button("Generate Dungeon")]
@@ -28,6 +29,7 @@ public class ImprovedGenScript : MonoBehaviour
         toDo.Clear();
         done.Clear();
         nodes.Clear();
+        doorNodes.Clear();
         doors.Clear();
 
         DebugDrawingBatcher.GetInstance().ClearAllBatchedCalls();
@@ -135,6 +137,7 @@ public class ImprovedGenScript : MonoBehaviour
     private void BuildDoors()
     {
         doors.Clear();
+        doorNodes.Clear();
 
         HashSet<(RoomNode, RoomNode)> processed = new();
 
@@ -150,12 +153,19 @@ public class ImprovedGenScript : MonoBehaviour
                 if (inter.width <= 0 && inter.height <= 0)
                     continue;
 
-                RectInt door = CreateDoor(inter);
+                RectInt doorRect = CreateDoor(inter);
 
-                if (door.width > 0 && door.height > 0)
-                {
-                    doors.Add(door);
-                }
+                if (doorRect.width <= 0 || doorRect.height <= 0)
+                    continue;
+
+                doors.Add(doorRect);
+
+                DoorNode doorNode = new DoorNode();
+                doorNode.a = a;
+                doorNode.b = b;
+                doorNode.rect = doorRect;
+
+                doorNodes.Add(doorNode);
 
                 processed.Add((a, b));
             }
@@ -237,7 +247,55 @@ public class ImprovedGenScript : MonoBehaviour
 
             foreach (RectInt d in doors)
                 AlgorithmsUtils.DebugRectInt(d, Color.cyan);
+
+            DrawGraphDebug();
         });
+    }
+
+    private void DrawGraphDebug()
+    {
+        HashSet<DoorNode> drawnDoors = new();
+
+        foreach (RoomNode node in nodes)
+        {
+            Vector3 nodePos = GetRoomCenter(node.room);
+            DebugExtension.DebugWireSphere(nodePos, Color.yellow, 0.6f);
+
+            foreach (DoorNode door in doorNodes)
+            {
+                if (door.a != node && door.b != node)
+                    continue;
+
+                if (drawnDoors.Contains(door))
+                    continue;
+
+                Vector3 doorPos = new Vector3(
+                    door.rect.x + door.rect.width * 0.5f,
+                    0,
+                    door.rect.y + door.rect.height * 0.5f
+                );
+
+                Vector3 otherRoom = GetRoomCenter(
+                    door.a == node ? door.b.room : door.a.room
+                );
+
+                DebugExtension.DebugWireSphere(doorPos, Color.yellow, 0.3f);
+
+                Debug.DrawLine(nodePos, doorPos, Color.yellow);
+                Debug.DrawLine(doorPos, otherRoom, Color.yellow);
+
+                drawnDoors.Add(door);
+            }
+        }
+    }
+
+    private Vector3 GetRoomCenter(RectInt r)
+    {
+        return new Vector3(
+            r.x + r.width * 0.5f,
+            0,
+            r.y + r.height * 0.5f
+        );
     }
 
 }
