@@ -10,6 +10,13 @@ public class ImprovedGenScript : MonoBehaviour
     [SerializeField] private int minimumRoomSize = 10;
     [SerializeField] private float generationDelay = 0.05f;
 
+    [Header("Prefabs")]
+    public GameObject floorPrefab;
+    public GameObject wallPrefab;
+    public GameObject doorPrefab;
+
+    public Transform dungeonParent;
+
     private List<RectInt> toDo = new();
     private List<RectInt> done = new();
 
@@ -19,6 +26,11 @@ public class ImprovedGenScript : MonoBehaviour
 
     private HashSet<RoomNode> visitedRooms = new();
     private HashSet<DoorNode> visitedDoors = new();
+
+    private int[,] tileMap;
+    private Vector2Int gridOffset;
+
+    private enum Tile { Empty, Floor, Wall, Door }
 
     [Button("Generate Dungeon")]
     private void Generate()
@@ -36,6 +48,8 @@ public class ImprovedGenScript : MonoBehaviour
         doors.Clear();
         visitedRooms.Clear();
         visitedDoors.Clear();
+
+        ClearDungeon();
 
         DebugDrawingBatcher.GetInstance().ClearAllBatchedCalls();
 
@@ -81,8 +95,12 @@ public class ImprovedGenScript : MonoBehaviour
 
         yield return StartCoroutine(ValidateConnectivity());
 
+        BuildTileMap();
+        SpawnFromTileMap();
+
         Draw();
     }
+
 
     private (RectInt, RectInt) SplitVertical(RectInt r)
     {
@@ -103,6 +121,7 @@ public class ImprovedGenScript : MonoBehaviour
 
         return (a, b);
     }
+
 
     private void BuildGraph()
     {
@@ -181,91 +200,124 @@ public class ImprovedGenScript : MonoBehaviour
         {
             if (inter.width < minDoorSpace) return default;
 
-            int margin = minDoorSpace / 2;
-
-            int min = inter.x + margin;
-            int max = inter.xMax - margin;
-
-            if (max <= min) return default;
-
-            int x = Random.Range(min, max);
+            int x = Random.Range(inter.x + 2, inter.xMax - 2);
             return new RectInt(x, inter.y, 1, 1);
         }
         else
         {
             if (inter.height < minDoorSpace) return default;
 
-            int margin = minDoorSpace / 2;
-
-            int min = inter.y + margin;
-            int max = inter.yMax - margin;
-
-            if (max <= min) return default;
-
-            int y = Random.Range(min, max);
+            int y = Random.Range(inter.y + 2, inter.yMax - 2);
             return new RectInt(inter.x, y, 1, 1);
+        }
+    }
+
+
+    private void BuildTileMap()
+    {
+        gridOffset = new Vector2Int(dungeonBounds.x, dungeonBounds.y);
+
+        tileMap = new int[dungeonBounds.height, dungeonBounds.width];
+
+        int rows = tileMap.GetLength(0);
+        int cols = tileMap.GetLength(1);
+
+        for (int y = 0; y < rows; y++)
+        {
+            for (int x = 0; x < cols; x++)
+            {
+                tileMap[y, x] = 1;
+            }
+        }
+
+
+        foreach (RectInt room in done)
+        {
+            RectInt inner = new RectInt(
+                room.x + 1,
+                room.y + 1,
+                room.width - 2,
+                room.height - 2
+            );
+
+            for (int y = inner.yMin; y < inner.yMax; y++)
+            {
+                for (int x = inner.xMin; x < inner.xMax; x++)
+                {
+                    SetTile(x, y, 0);
+                }
+            }
+        }
+
+
+        foreach (RectInt door in doors)
+        {
+            SetTile(door.x, door.y, 0);
+        }
+    }
+
+    private void SetTile(int x, int y, int value)
+    {
+        int gx = x - gridOffset.x;
+        int gy = y - gridOffset.y;
+
+        if (gx < 0 || gy < 0 ||
+            gx >= tileMap.GetLength(1) ||
+            gy >= tileMap.GetLength(0))
+            return;
+
+        tileMap[gy, gx] = value;
+    }
+
+
+    private void SpawnFromTileMap()
+    {
+        if (tileMap == null) return;
+
+        float tileSize = 1f;
+
+        for (int y = 0; y < tileMap.GetLength(0); y++)
+        {
+            for (int x = 0; x < tileMap.GetLength(1); x++)
+            {
+                Vector3 worldPos = new Vector3(
+                    (x + 0.5f) * tileSize,
+                    0.5f,
+                    (y + 0.5f) * tileSize
+                );
+
+                if (tileMap[y, x] == 1)
+                {
+                    Instantiate(wallPrefab, worldPos + Vector3.up * 0.5f, Quaternion.identity, dungeonParent);
+                }
+                else
+                {
+                    Instantiate(floorPrefab, worldPos, Quaternion.identity, dungeonParent);
+                }
+            }
+        }
+    }
+
+    private void ClearDungeon()
+    {
+        if (dungeonParent == null)
+        {
+            dungeonParent = new GameObject("Dungeon").transform;
+            return;
+        }
+
+        for (int i = dungeonParent.childCount - 1; i >= 0; i--)
+        {
+            DestroyImmediate(dungeonParent.GetChild(i).gameObject);
         }
     }
 
     private IEnumerator ValidateConnectivity()
     {
-        visitedRooms.Clear();
-        visitedDoors.Clear();
-
         if (nodes.Count == 0)
             yield break;
 
-        yield return StartCoroutine(DFS(nodes[0]));
-    }
-
-    private IEnumerator DFS(RoomNode start)
-    {
-        Stack<RoomNode> stack = new();
-        stack.Push(start);
-
-        visitedRooms.Clear();
-        visitedDoors.Clear();
-
-        while (stack.Count > 0)
-        {
-            RoomNode node = stack.Pop();
-
-            if (visitedRooms.Contains(node))
-                continue;
-
-            visitedRooms.Add(node);
-
-            Draw();
-            yield return new WaitForSeconds(generationDelay);
-
-            foreach (RoomNode next in node.connections)
-            {
-                if (visitedRooms.Contains(next))
-                    continue;
-
-                DoorNode door = FindDoor(node, next);
-
-                if (door != null)
-                {
-                    visitedDoors.Add(door);
-
-                    Draw();
-                    yield return new WaitForSeconds(generationDelay);
-                }
-
-                stack.Push(next);
-            }
-        }
-    }
-
-    private DoorNode FindDoor(RoomNode a, RoomNode b)
-    {
-        foreach (DoorNode d in doorNodes)
-        {
-            if ((d.a == a && d.b == b) || (d.a == b && d.b == a))
-                return d;
-        }
-        return null;
+        yield return null;
     }
 
     private void Draw()
@@ -282,50 +334,6 @@ public class ImprovedGenScript : MonoBehaviour
 
             foreach (RectInt d in doors)
                 AlgorithmsUtils.DebugRectInt(d, Color.cyan);
-
-            DrawGraphDebug();
         });
-    }
-
-    private void DrawGraphDebug()
-    {
-        foreach (RoomNode node in nodes)
-        {
-            Vector3 nodePos = GetRoomCenter(node.room);
-            Color roomColor = visitedRooms.Contains(node) ? Color.blue : Color.yellow;
-            DebugExtension.DebugWireSphere(nodePos, roomColor, 0.6f);
-
-            foreach (DoorNode door in doorNodes)
-            {
-                if (door.a != node && door.b != node)
-                    continue;
-
-                Vector3 doorPos = new Vector3(
-                    door.rect.x + door.rect.width * 0.5f,
-                    0,
-                    door.rect.y + door.rect.height * 0.5f
-                );
-
-                Color c = visitedDoors.Contains(door) ? Color.blue : Color.yellow;
-
-                DebugExtension.DebugWireSphere(doorPos, c, 0.3f);
-
-                Vector3 otherRoom = GetRoomCenter(
-                    door.a == node ? door.b.room : door.a.room
-                );
-
-                Debug.DrawLine(nodePos, doorPos, c);
-                Debug.DrawLine(doorPos, otherRoom, c);
-            }
-        }
-    }
-
-    private Vector3 GetRoomCenter(RectInt r)
-    {
-        return new Vector3(
-            r.x + r.width * 0.5f,
-            0,
-            r.y + r.height * 0.5f
-        );
     }
 }
