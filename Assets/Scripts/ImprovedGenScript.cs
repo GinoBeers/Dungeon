@@ -1,6 +1,7 @@
 using NaughtyAttributes;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.AI.Navigation;
 using UnityEngine;
 
 public class ImprovedGenScript : MonoBehaviour
@@ -9,6 +10,7 @@ public class ImprovedGenScript : MonoBehaviour
     [SerializeField] private RectInt dungeonBounds = new RectInt(0, 0, 100, 50);
     [SerializeField] private int minimumRoomSize = 10;
     [SerializeField] private float generationDelay = 0.05f;
+    [SerializeField] private NavMeshSurface navMeshSurface;
 
     [Header("Prefabs")]
     public GameObject floorPrefab;
@@ -97,6 +99,8 @@ public class ImprovedGenScript : MonoBehaviour
 
         BuildTileMap();
         SpawnFromTileMap();
+        yield return null;
+        BakeNavMesh();
 
         Draw();
     }
@@ -335,5 +339,17 @@ public class ImprovedGenScript : MonoBehaviour
             foreach (RectInt d in doors)
                 AlgorithmsUtils.DebugRectInt(d, Color.cyan);
         });
+    }
+
+    [Button]
+    private void BakeNavMesh()
+    {
+        if (navMeshSurface == null)
+        {
+            Debug.LogError("NavMeshSurface not assigned!");
+            return;
+        }
+
+        navMeshSurface.BuildNavMesh();
     }
 }
