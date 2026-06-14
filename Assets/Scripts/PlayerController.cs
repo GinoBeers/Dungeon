@@ -16,4 +16,14 @@ public class PlayerController : MonoBehaviour
     {
         navMeshAgent.SetDestination(destination);
     }
+
+    public void ResetToStart()
+    {
+        Vector3 startPos = new Vector3(1.5f, 0.5f, 1.5f);
+
+        navMeshAgent.ResetPath();
+        navMeshAgent.velocity = Vector3.zero;
+
+        navMeshAgent.Warp(startPos);
+    }
 }

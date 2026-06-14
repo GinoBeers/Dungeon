@@ -25,8 +25,7 @@ public class MouseClickController : MonoBehaviour
 
         if (clickPosition != Vector3.zero)
         {
-            Debug.DrawLine(Vector3.up * 5f + clickPosition, clickPosition, Color.red);
-            Debug.DrawRay(clickPosition, Vector3.up * 0.5f, Color.green);
+            DebugExtension.DebugWireSphere(clickPosition, Color.yellow, 0.6f);
         }
     }
 }
