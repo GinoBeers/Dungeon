@@ -17,6 +17,9 @@ public class ImprovedGenScript : MonoBehaviour
     private List<DoorNode> doorNodes = new();
     private List<RectInt> doors = new();
 
+    private HashSet<RoomNode> visitedRooms = new();
+    private HashSet<DoorNode> visitedDoors = new();
+
     [Button("Generate Dungeon")]
     private void Generate()
     {
@@ -31,6 +34,8 @@ public class ImprovedGenScript : MonoBehaviour
         nodes.Clear();
         doorNodes.Clear();
         doors.Clear();
+        visitedRooms.Clear();
+        visitedDoors.Clear();
 
         DebugDrawingBatcher.GetInstance().ClearAllBatchedCalls();
 
@@ -72,14 +77,12 @@ public class ImprovedGenScript : MonoBehaviour
         }
 
         BuildGraph();
-
         BuildDoors();
 
-        ValidateConnectivity();
+        yield return StartCoroutine(ValidateConnectivity());
 
         Draw();
     }
-
 
     private (RectInt, RectInt) SplitVertical(RectInt r)
     {
@@ -105,15 +108,14 @@ public class ImprovedGenScript : MonoBehaviour
     {
         nodes.Clear();
 
-        // Create nodes
         foreach (RectInt r in done)
         {
             RoomNode node = new RoomNode();
             node.room = r;
+            node.connections = new List<RoomNode>();
             nodes.Add(node);
         }
 
-        // Connect neighbours
         for (int i = 0; i < nodes.Count; i++)
         {
             for (int j = i + 1; j < nodes.Count; j++)
@@ -132,7 +134,6 @@ public class ImprovedGenScript : MonoBehaviour
         RectInt inter = AlgorithmsUtils.Intersect(a, b);
         return inter.width > 0 || inter.height > 0;
     }
-
 
     private void BuildDoors()
     {
@@ -153,19 +154,19 @@ public class ImprovedGenScript : MonoBehaviour
                 if (inter.width <= 0 && inter.height <= 0)
                     continue;
 
-                RectInt doorRect = CreateDoor(inter);
+                RectInt door = CreateDoor(inter);
 
-                if (doorRect.width <= 0 || doorRect.height <= 0)
-                    continue;
+                if (door.width > 0 && door.height > 0)
+                {
+                    doors.Add(door);
 
-                doors.Add(doorRect);
+                    DoorNode dn = new DoorNode();
+                    dn.rect = door;
+                    dn.a = a;
+                    dn.b = b;
 
-                DoorNode doorNode = new DoorNode();
-                doorNode.a = a;
-                doorNode.b = b;
-                doorNode.rect = doorRect;
-
-                doorNodes.Add(doorNode);
+                    doorNodes.Add(dn);
+                }
 
                 processed.Add((a, b));
             }
@@ -178,60 +179,94 @@ public class ImprovedGenScript : MonoBehaviour
 
         if (inter.width > inter.height)
         {
-            if (inter.width < minDoorSpace)
-                return default;
+            if (inter.width < minDoorSpace) return default;
 
             int margin = minDoorSpace / 2;
 
             int min = inter.x + margin;
             int max = inter.xMax - margin;
 
-            if (max <= min)
-                return default;
+            if (max <= min) return default;
 
             int x = Random.Range(min, max);
             return new RectInt(x, inter.y, 1, 1);
         }
         else
         {
-            if (inter.height < minDoorSpace)
-                return default;
+            if (inter.height < minDoorSpace) return default;
 
             int margin = minDoorSpace / 2;
 
             int min = inter.y + margin;
             int max = inter.yMax - margin;
 
-            if (max <= min)
-                return default;
+            if (max <= min) return default;
 
             int y = Random.Range(min, max);
             return new RectInt(inter.x, y, 1, 1);
         }
     }
 
-
-    private void ValidateConnectivity()
+    private IEnumerator ValidateConnectivity()
     {
-        if (nodes.Count == 0) return;
+        visitedRooms.Clear();
+        visitedDoors.Clear();
 
-        HashSet<RoomNode> visited = new();
+        if (nodes.Count == 0)
+            yield break;
 
-        DFS(nodes[0], visited);
-
+        yield return StartCoroutine(DFS(nodes[0]));
     }
 
-    private void DFS(RoomNode node, HashSet<RoomNode> visited)
+    private IEnumerator DFS(RoomNode start)
     {
-        visited.Add(node);
+        Stack<RoomNode> stack = new();
+        stack.Push(start);
 
-        foreach (RoomNode n in node.connections)
+        visitedRooms.Clear();
+        visitedDoors.Clear();
+
+        while (stack.Count > 0)
         {
-            if (!visited.Contains(n))
-                DFS(n, visited);
+            RoomNode node = stack.Pop();
+
+            if (visitedRooms.Contains(node))
+                continue;
+
+            visitedRooms.Add(node);
+
+            Draw();
+            yield return new WaitForSeconds(generationDelay);
+
+            foreach (RoomNode next in node.connections)
+            {
+                if (visitedRooms.Contains(next))
+                    continue;
+
+                DoorNode door = FindDoor(node, next);
+
+                if (door != null)
+                {
+                    visitedDoors.Add(door);
+
+                    Draw();
+                    yield return new WaitForSeconds(generationDelay);
+                }
+
+                stack.Push(next);
+            }
         }
     }
 
+    private DoorNode FindDoor(RoomNode a, RoomNode b)
+    {
+        foreach (DoorNode d in doorNodes)
+        {
+            if ((d.a == a && d.b == b) || (d.a == b && d.b == a))
+                return d;
+        }
+        return null;
+    }
 
     private void Draw()
     {
@@ -254,19 +289,15 @@ public class ImprovedGenScript : MonoBehaviour
 
     private void DrawGraphDebug()
     {
-        HashSet<DoorNode> drawnDoors = new();
-
         foreach (RoomNode node in nodes)
         {
             Vector3 nodePos = GetRoomCenter(node.room);
-            DebugExtension.DebugWireSphere(nodePos, Color.yellow, 0.6f);
+            Color roomColor = visitedRooms.Contains(node) ? Color.blue : Color.yellow;
+            DebugExtension.DebugWireSphere(nodePos, roomColor, 0.6f);
 
             foreach (DoorNode door in doorNodes)
             {
                 if (door.a != node && door.b != node)
-                    continue;
-
-                if (drawnDoors.Contains(door))
                     continue;
 
                 Vector3 doorPos = new Vector3(
@@ -275,16 +306,16 @@ public class ImprovedGenScript : MonoBehaviour
                     door.rect.y + door.rect.height * 0.5f
                 );
 
+                Color c = visitedDoors.Contains(door) ? Color.blue : Color.yellow;
+
+                DebugExtension.DebugWireSphere(doorPos, c, 0.3f);
+
                 Vector3 otherRoom = GetRoomCenter(
                     door.a == node ? door.b.room : door.a.room
                 );
 
-                DebugExtension.DebugWireSphere(doorPos, Color.yellow, 0.3f);
-
-                Debug.DrawLine(nodePos, doorPos, Color.yellow);
-                Debug.DrawLine(doorPos, otherRoom, Color.yellow);
-
-                drawnDoors.Add(door);
+                Debug.DrawLine(nodePos, doorPos, c);
+                Debug.DrawLine(doorPos, otherRoom, c);
             }
         }
     }
@@ -297,5 +328,4 @@ public class ImprovedGenScript : MonoBehaviour
             r.y + r.height * 0.5f
         );
     }
-
 }
