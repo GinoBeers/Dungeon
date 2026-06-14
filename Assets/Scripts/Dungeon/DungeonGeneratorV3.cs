@@ -5,7 +5,7 @@ using Unity.AI.Navigation;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-public class ImprovedGenScript : MonoBehaviour
+public class DungeonGeneratorV3 : MonoBehaviour
 {
     [Header("Dungeon Settings")]
     [SerializeField] private RectInt dungeonBounds = new RectInt(0, 0, 100, 50);

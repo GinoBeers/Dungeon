@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class OldDungeonGenerator : MonoBehaviour
+public class DungeonGenV1 : MonoBehaviour
 {
     public int height = 50;
     public int width = 100;
