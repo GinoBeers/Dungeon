@@ -24,7 +24,7 @@ public class DungeonGeneratorV3 : MonoBehaviour
     private List<RectInt> toDo = new();
     private List<RectInt> done = new();
 
-    private List<RoomNode> nodes = new();
+    private List<RoomNode> roomNodes = new();
     private List<DoorNode> doorNodes = new();
     private List<RectInt> doors = new();
 
@@ -91,6 +91,8 @@ public class DungeonGeneratorV3 : MonoBehaviour
 
         yield return StartCoroutine(ValidateConnectivity());
 
+        Debug.Log( roomNodes.Count + ","  + visitedRooms.Count); // TODO adapt to a proper tcheck in a separate method
+
         BuildTileMap();
         SpawnFromTileMap();
         yield return null;
@@ -123,24 +125,26 @@ public class DungeonGeneratorV3 : MonoBehaviour
 
     private void BuildGraph()
     {
-        nodes.Clear();
+        roomNodes.Clear();
 
         foreach (RectInt r in done)
         {
             RoomNode node = new RoomNode();
             node.room = r;
             node.connections = new List<RoomNode>();
-            nodes.Add(node);
+            roomNodes.Add(node);
         }
 
-        for (int i = 0; i < nodes.Count; i++)
+        for (int i = 0; i < roomNodes.Count; i++)
         {
-            for (int j = i + 1; j < nodes.Count; j++)
+            for (int j = i + 1; j < roomNodes.Count; j++)
             {
-                if (AreNeighbours(nodes[i].room, nodes[j].room))
+                if (AreNeighbours(roomNodes[i].room, roomNodes[j].room))
                 {
-                    nodes[i].connections.Add(nodes[j]);
-                    nodes[j].connections.Add(nodes[i]);
+                    if (UnityEngine.Random.Range(0, 100) < 50) continue;  // TODO remove after everything works
+
+                    roomNodes[i].connections.Add(roomNodes[j]);
+                    roomNodes[j].connections.Add(roomNodes[i]);
                 }
             }
         }
@@ -158,11 +162,13 @@ public class DungeonGeneratorV3 : MonoBehaviour
         doorNodes.Clear();
 
         HashSet<(RoomNode, RoomNode)> processed = new();
+        int i = 0;
 
-        foreach (RoomNode a in nodes)
+        foreach (RoomNode a in roomNodes)
         {
             foreach (RoomNode b in a.connections)
             {
+                i++;
                 if (processed.Contains((a, b)) || processed.Contains((b, a)))
                     continue;
 
@@ -188,11 +194,15 @@ public class DungeonGeneratorV3 : MonoBehaviour
                 processed.Add((a, b));
             }
         }
+
+        Debug.Log("O(BuildDoors) #Rooms = " + roomNodes.Count + " , #Doors = " + doorNodes.Count + " , Ocount = " + i );
     }
 
     private RectInt CreateDoor(RectInt inter)
     {
         int minDoorSpace = 5;
+
+
 
         if (inter.width > inter.height)
         {
@@ -215,10 +225,10 @@ public class DungeonGeneratorV3 : MonoBehaviour
         visitedRooms.Clear();
         visitedDoors.Clear();
 
-        if (nodes.Count == 0)
+        if (roomNodes.Count == 0)
             yield break;
 
-        yield return StartCoroutine(DFS(nodes[0]));
+        yield return StartCoroutine(DFS(roomNodes[0]));
     }
 
 
@@ -274,7 +284,7 @@ public class DungeonGeneratorV3 : MonoBehaviour
 
     private void DrawGraphDebug()
     {
-        foreach (RoomNode node in nodes)
+        foreach (RoomNode node in roomNodes)
         {
             Vector3 nodePos = GetRoomCenter(node.room);
             Color roomColor = visitedRooms.Contains(node) ? Color.blue : Color.yellow;
@@ -421,7 +431,7 @@ public class DungeonGeneratorV3 : MonoBehaviour
     {
         toDo.Clear();
         done.Clear();
-        nodes.Clear();
+        roomNodes.Clear();
         doorNodes.Clear();
         doors.Clear();
         visitedRooms.Clear();
