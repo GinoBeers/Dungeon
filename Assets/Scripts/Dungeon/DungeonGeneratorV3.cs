@@ -86,10 +86,19 @@ public class DungeonGeneratorV3 : MonoBehaviour
             yield return new WaitForSeconds(generationDelay);
         }
 
-        BuildGraph();
+        CreateRoomNodes();
         BuildDoors();
 
         yield return StartCoroutine(ValidateConnectivity());
+
+        if (!IsDungeonConnected())
+        {
+            Debug.LogWarning("Dungeon is NOT connected!");
+        }
+        else
+        {
+            Debug.Log("Dungeon connected!");
+        }
 
         Debug.Log( roomNodes.Count + ","  + visitedRooms.Count); // TODO adapt to a proper tcheck in a separate method
 
@@ -123,101 +132,90 @@ public class DungeonGeneratorV3 : MonoBehaviour
     }
 
 
-    private void BuildGraph()
+    private void CreateRoomNodes()
     {
         roomNodes.Clear();
 
-        foreach (RectInt r in done)
+        foreach (RectInt room in done)
         {
             RoomNode node = new RoomNode();
-            node.room = r;
+            node.room = room;
             node.connections = new List<RoomNode>();
+
             roomNodes.Add(node);
         }
-
-        for (int i = 0; i < roomNodes.Count; i++)
-        {
-            for (int j = i + 1; j < roomNodes.Count; j++)
-            {
-                if (AreNeighbours(roomNodes[i].room, roomNodes[j].room))
-                {
-                    if (UnityEngine.Random.Range(0, 100) < 50) continue;  // TODO remove after everything works
-
-                    roomNodes[i].connections.Add(roomNodes[j]);
-                    roomNodes[j].connections.Add(roomNodes[i]);
-                }
-            }
-        }
     }
 
-    private bool AreNeighbours(RectInt a, RectInt b)
-    {
-        RectInt inter = AlgorithmsUtils.Intersect(a, b);
-        return inter.width > 0 || inter.height > 0;
-    }
 
     private void BuildDoors()
     {
         doors.Clear();
         doorNodes.Clear();
 
-        HashSet<(RoomNode, RoomNode)> processed = new();
-        int i = 0;
-
-        foreach (RoomNode a in roomNodes)
+        for (int i = 0; i < roomNodes.Count; i++)
         {
-            foreach (RoomNode b in a.connections)
+            for (int j = i + 1; j < roomNodes.Count; j++)
             {
-                i++;
-                if (processed.Contains((a, b)) || processed.Contains((b, a)))
+                RoomNode roomA = roomNodes[i];
+                RoomNode roomB = roomNodes[j];
+
+                RectInt overlap = AlgorithmsUtils.Intersect(roomA.room, roomB.room);
+
+                RectInt door = CreateDoor(overlap);
+
+                if (door.width == 0 || door.height == 0)
                     continue;
 
-                RectInt inter = AlgorithmsUtils.Intersect(a.room, b.room);
+                //MAKE DUNGEON BROKEN TEST
+                //if (Random.Range(0, 100) < 50)
+                //    continue;
 
-                if (inter.width <= 0 && inter.height <= 0)
-                    continue;
+                doors.Add(door);
 
-                RectInt door = CreateDoor(inter);
+                DoorNode doorNode = new DoorNode();
+                doorNode.rect = door;
+                doorNode.a = roomA;
+                doorNode.b = roomB;
 
-                if (door.width > 0 && door.height > 0)
-                {
-                    doors.Add(door);
+                doorNodes.Add(doorNode);
 
-                    DoorNode dn = new DoorNode();
-                    dn.rect = door;
-                    dn.a = a;
-                    dn.b = b;
-
-                    doorNodes.Add(dn);
-                }
-
-                processed.Add((a, b));
+                // Build graph ONLY if a door exists
+                roomA.connections.Add(roomB);
+                roomB.connections.Add(roomA);
             }
         }
 
-        Debug.Log("O(BuildDoors) #Rooms = " + roomNodes.Count + " , #Doors = " + doorNodes.Count + " , Ocount = " + i );
+        Debug.Log($"Rooms: {roomNodes.Count}  Doors: {doorNodes.Count}");
     }
 
-    private RectInt CreateDoor(RectInt inter)
+    private RectInt CreateDoor(RectInt overlap)
     {
-        int minDoorSpace = 5;
+        const int minDoorSpace = 5;
 
-
-
-        if (inter.width > inter.height)
+        // Vertical wall
+        if (overlap.height > overlap.width)
         {
-            if (inter.width < minDoorSpace) return default;
+            if (overlap.height < minDoorSpace)
+                return default;
 
-            int x = Random.Range(inter.x + 2, inter.xMax - 2);
-            return new RectInt(x, inter.y, 1, 1);
+            int y = Random.Range(overlap.y + 2, overlap.yMax - 2);
+
+            return new RectInt(overlap.x, y, 1, 1);
         }
-        else
+
+        // Horizontal wall
+        if (overlap.width > overlap.height)
         {
-            if (inter.height < minDoorSpace) return default;
+            if (overlap.width < minDoorSpace)
+                return default;
 
-            int y = Random.Range(inter.y + 2, inter.yMax - 2);
-            return new RectInt(inter.x, y, 1, 1);
+            int x = Random.Range(overlap.x + 2, overlap.xMax - 2);
+
+            return new RectInt(x, overlap.y, 1, 1);
         }
+
+        // Corner touching
+        return default;
     }
 
     private IEnumerator ValidateConnectivity()
@@ -270,6 +268,11 @@ public class DungeonGeneratorV3 : MonoBehaviour
                 stack.Push(next);
             }
         }
+    }
+
+    private bool IsDungeonConnected()
+    {
+        return visitedRooms.Count == roomNodes.Count;
     }
 
     private DoorNode FindDoor(RoomNode a, RoomNode b)
